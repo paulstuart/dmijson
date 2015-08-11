@@ -1,0 +1,153 @@
+#!/bin/bash
+
+#
+# convert the output of dmidecode into JSON
+#
+# labels are stripped of all non alphanumeric text
+# we look for LABEL: VALUE (splitting on the ':')
+# if there is no ':' then it is a VALUE
+#
+# because sections repeat, each instance is cached
+# in a tmp directory and dumped at the end of processing
+#
+
+unset TAG OLDTAG HANDLE OLDHANDLE PREFIX
+
+quote() { 
+    [[ ${1// /}  ]] || return # skip if blank
+    [[ $LABEL =~ Version || $LABEL =~ Description || $LABEL =~ Address || $LABEL =~ Serial || $LABEL == "Rank" ]] && echo -n "${PREFIX}\"$*\"" && return
+    [[ $* =~ ^[0-9]+(.[0-9])?$ ]] && echo -n "${PREFIX}$*" || echo -n "${PREFIX}\"$*\""
+}
+
+fail() { echo >&2 $* ; exit 1 ; }
+
+emit() {
+    [[ $FILENAME ]] || fail "no filename set"
+    echo -n -e "$*" >> $FILENAME
+}
+
+
+tojson() {
+
+TMPDIR=$(mktemp -d)
+#echo >&2 "TMPDIR: $TMPDIR"
+
+REJECT="^(Inactive|Table|End Of Table|SMBIOS|#|[0-9])"
+
+while IFS= read -r LINE
+do
+    [[ $LINE ]] || continue
+    [[ $LINE =~ $REJECT ]]  && continue
+    [[ $LINE =~ ^Handle ]]  && HANDLE="${LINE:7:6}" && continue
+    [[ $LINE =~ ^[A-Z] ]]   && TAG=${LINE//[[:space:]]/} && continue
+    unset SKIP
+
+    # LABEL is all text to left of ":"
+    # VALUE is all text to right of ":"
+    LABEL=${LINE%%:*}
+    VALUE=${LINE##*:}
+
+    # if no ':' they'll be the same, and therefore text represents VALUE
+    [[ $VALUE == $LABEL ]] && unset LABEL
+    [[ $LABEL && $VALUE ]] && BOTH=true || unset BOTH
+
+    # trim whitespace and undesirables as needed
+    LABEL=${LABEL//[()\"\.\/[:space:]-]/}
+    VALUE=${VALUE##[[:space:]]}
+    VALUE=${VALUE//\"/}
+    VALUE=$(echo $VALUE | tr -d $'\t' | sed -e 's/\s*$//g')
+
+    mkdir $TMPDIR/$TAG > /dev/null 2>&1
+
+    # TAG represents top level structure that starts at beginning of the line
+    [[ -z $TAG ]] && echo "NO TAG LINE: $LINE" && exit
+    if [[ $TAG != $OLDTAG || $HANDLE != $OLDHANDLE ]]; then
+        # clean up prior tag
+        [[ $PREFIX ]] && emit "\n${PREFIX}]\n" # prefix means list mode
+        [[ $OLDTAG ]] && emit "\n  }" #|| echo "TAG:$TAG OLD:$OLDTAG"
+
+        mkdir $TMPDIR/$TAG > /dev/null 2>&1
+        FILENAME=$TMPDIR/$TAG/$HANDLE
+        emit " {\n" 
+
+        unset LAST
+        unset PREFIX
+        OLDTAG=$TAG
+        OLDHANDLE=$HANDLE
+    fi
+
+    # if just a VALUE element then we are "SOLO"
+    # which represents a list element
+    [[ $VALUE && -z $LABEL ]] && SOLO=true || unset SOLO
+    [[ $SOLO && $LAST ]] && SKIP=true && VALUE=" " && unset SOLO # errant line we can live without
+
+    # did we encounter an end of list?
+    [[ $LABEL && $VALUE && $PREFIX ]] && emit "\n${PREFIX}],\n" && unset PREFIX 
+
+    # we can't comma separate list items until we know there's another entry
+    # on the next line, which we won't know until then
+    # so we save actual line endings until the *beginning* of the next line
+    # and tack one on at the end of the section to clean up
+
+    [[ $SOLO && $PRIOR ]]    && emit ",\n" # mid list 
+    [[ $SOLO && $LAST ]]     && emit "," # special case 
+    [[ -z $VALUE && $LAST ]] && emit ",\n" 
+    [[ $SKIP ]]              && emit ",\n"
+    [[ $BOTH && $LAST ]]     && emit ",\n"
+
+    # print item name
+    [[ $LABEL ]] && emit "$PREFIX      \"$LABEL\": "
+
+    # print item value, or if none, start a new list 
+    [[ -n $VALUE ]] && emit "$(quote "$VALUE")" || emit  "[\n"
+    [[ $LABEL && -z $VALUE ]] && PREFIX="          " 
+
+    # to compare prior states
+    LAST=$BOTH
+    PRIOR=$SOLO
+done
+emit "\n  }" # close out last file
+
+
+
+TAGS=$(ls $TMPDIR | wc -l)
+
+echo "{"
+cd $TMPDIR
+for TAG in *
+do
+    let "TAGS--"
+    echo "  \"$TAG\":"
+    CNT=$(ls $TMPDIR/$TAG | wc -l)
+    [[ $CNT -eq 1 ]] && cat $TMPDIR/$TAG/* && echo -e "\n," && continue
+    echo "  ["
+    for FILE in $TMPDIR/$TAG/*
+    do
+        cat $FILE
+        let "CNT--"
+        [[ $CNT -gt 0 ]] && echo ","
+    done
+    echo
+    echo "  ]"
+    [[ $TAGS -gt 0 ]] && echo ","
+done
+echo "}"
+
+rm -rf $TMPDIR
+
+}
+
+unset DECODE FILENAME
+
+while getopts "df:" opt; do
+  case $opt in
+      d) DECODE=true ;;
+      f) FILENAME=$OPTARG ;;
+    esac
+done
+
+[[ $DECODE && $FILENAME ]] && dmidecode | tojson > $FILENAME && exit
+[[ $DECODE ]] && dmidecode | tojson && exit
+[[ $FILENAME ]] && tojson > $FILENAME && exit
+tojson
+
