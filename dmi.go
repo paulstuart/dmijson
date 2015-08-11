@@ -387,6 +387,11 @@ func FromJSON(j string) (DMI, error) {
 	return d, json.Unmarshal([]byte(j), &d)
 }
 
+func (d DMI) ToJSON() string {
+	j, _ := json.MarshalIndent(d, "  ", "  ")
+	return string(j)
+}
+
 func Script() (string, error) {
 	s, err := Asset("bin/dmij")
 	return string(s), err

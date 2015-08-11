@@ -14,7 +14,7 @@ func TestJSON(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	t.Log(j)
+	t.Log(j.ToJSON())
 }
 
 func TestScript(t *testing.T) {
