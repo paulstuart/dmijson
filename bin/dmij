@@ -30,6 +30,8 @@ emit() {
     echo -n -e "$*" >> $FILENAME
 }
 
+show() { echo "  {" ; cat $1 ; echo "  }" ; }
+
 
 tojson() {
 
@@ -46,6 +48,7 @@ declare -A IGNORE=(
 	["not present"]=true
 	["no module installed"]=true
 	["0123456789"]=true
+	["1234567890"]=true
 	["<out of spec>"]=true
 )
 
@@ -75,15 +78,12 @@ do
     mkdir $TMPDIR/$TAG > /dev/null 2>&1
 
     # TAG represents top level structure that starts at beginning of the line
-    [[ -z $TAG ]] && echo "NO TAG LINE: $LINE" && exit
     if [[ $TAG != $OLDTAG || $HANDLE != $OLDHANDLE ]]; then
         # clean up prior tag
         [[ $PREFIX ]] && emit "\n${PREFIX}]\n" # prefix means list mode
-        [[ $OLDTAG ]] && emit "\n  }" #|| echo "TAG:$TAG OLD:$OLDTAG"
 
         mkdir $TMPDIR/$TAG > /dev/null 2>&1
         FILENAME=$TMPDIR/$TAG/$HANDLE
-        emit " {\n" 
 
         unset LAST
         unset PREFIX
@@ -121,9 +121,6 @@ do
     LAST=$BOTH
     PRIOR=$SOLO
 done
-emit "\n  }" # close out last file
-
-
 
 TAGS=$(ls $TMPDIR | wc -l)
 
@@ -134,11 +131,11 @@ do
     let "TAGS--"
     echo "  \"$TAG\":"
     CNT=$(ls $TMPDIR/$TAG | wc -l)
-    [[ $CNT -eq 1 ]] && cat $TMPDIR/$TAG/* && echo -e "\n," && continue
+    [[ $CNT -eq 1 ]] && show $TMPDIR/$TAG/* && echo -e "\n," && continue
     echo "  ["
     for FILE in $TMPDIR/$TAG/*
     do
-        cat $FILE
+        show $FILE
         let "CNT--"
         [[ $CNT -gt 0 ]] && echo ","
     done
