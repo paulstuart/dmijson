@@ -15,8 +15,12 @@ unset TAG OLDTAG HANDLE OLDHANDLE PREFIX
 
 quote() { 
     WHAT="$*"
-    [[ ${WHAT// /} ]]       || return   # skip if blank
-    [[ ${IGNORE[${WHAT,,}]} ]] && WHAT=""
+    #[[ ${WHAT// /} ]]       || return   # skip if blank
+    [[ ${WHAT} ]]       || return   # skip if blank
+    WHAT="${WHAT/[[:space:]]/}"
+    WHAT=$(echo $WHAT | tr -d '\t') # remove tabs
+    [[ $WHAT && ${IGNORE[${WHAT,,}]} ]] && WHAT=""
+    [[ $WHAT || $LABEL ]] || continue
 
     # enforce quoting on values that could look like numbers
     [[ $LABEL =~ Version || $LABEL =~ Description || $LABEL =~ Address || $LABEL =~ Serial || $LABEL == "Rank" ]] && echo -n "${PREFIX}\"$WHAT\"" && return
@@ -30,7 +34,7 @@ emit() {
     echo -n -e "$*" >> $FILENAME
 }
 
-show() { echo "  {" ; cat $1 ; echo "  }" ; }
+show() { echo "  {" ; cat $1 ; echo ; echo "  }" ; }
 
 
 tojson() {
@@ -54,6 +58,7 @@ declare -A IGNORE=(
 
 while IFS= read -r LINE
 do
+    #LINE=$(echo $LINE | tr -d '\t') # remove tabs
     [[ $LINE ]] || continue
     [[ $LINE =~ $REJECT ]]  && continue
     [[ $LINE =~ ^Handle ]]  && HANDLE="${LINE:7:6}" && continue
@@ -71,9 +76,9 @@ do
 
     # trim whitespace and undesirables as needed
     LABEL=${LABEL//[()\"\.\/[:space:]-]/}
-    VALUE=${VALUE##[[:space:]]}
+    #VALUE=${VALUE##[[:space:]]}
     VALUE=${VALUE//\"/}
-    VALUE=$(echo $VALUE | tr -d $'\t' | sed -e 's/\s*$//g')
+    #VALUE=$(echo $VALUE | tr -d $'\t' | sed -e 's/\s*$//g')
 
     mkdir $TMPDIR/$TAG > /dev/null 2>&1
 
@@ -152,7 +157,7 @@ rm -rf $TMPDIR
 # while this normally can be done with redirection
 # go:generate doesn't support that so we bake it in
 
-unset DECODE FILENAME
+unset FILENAME
 
 while getopts "df:" opt; do
   case $opt in
@@ -165,4 +170,5 @@ done
 [[ $DECODE ]] && dmidecode | tojson && exit
 [[ $FILENAME ]] && tojson > $FILENAME && exit
 tojson
+
 
