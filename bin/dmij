@@ -23,7 +23,7 @@ quote() {
     [[ $WHAT || $LABEL ]] || continue
 
     # enforce quoting on values that could look like numbers
-    [[ $LABEL =~ Version || $LABEL =~ Description || $LABEL =~ Address || $LABEL =~ Serial || $LABEL == "Rank" ]] && echo -n "${PREFIX}\"$WHAT\"" && return
+    [[ $LABEL =~ BIOSRevision || $LABEL =~ Version || $LABEL =~ Description || $LABEL =~ Address || $LABEL =~ Serial || $LABEL == "Rank" ]] && echo -n "${PREFIX}\"$WHAT\"" && return
     [[ $* =~ ^[0-9]+(.[0-9])?$ ]] && echo -n "${PREFIX}$WHAT" || echo -n "${PREFIX}\"$WHAT\""
 }
 
