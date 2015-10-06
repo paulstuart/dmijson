@@ -154,21 +154,23 @@ rm -rf $TMPDIR
 
 }
 
-# while this normally can be done with redirection
+# while one would normally save output via redirection
 # go:generate doesn't support that so we bake it in
 
-unset FILENAME
+unset FILENAME STDIN
 
-while getopts "df:" opt; do
+while getopts "f:s" opt; do
   case $opt in
-      d) DECODE=true ;;
       f) FILENAME=$OPTARG ;;
+      s) STDIN=true ;;
     esac
 done
 
-[[ $DECODE && $FILENAME ]] && dmidecode | tojson > $FILENAME && exit
-[[ $DECODE ]] && dmidecode | tojson && exit
-[[ $FILENAME ]] && tojson > $FILENAME && exit
-tojson
+if [[ $STDIN ]]; then
+    [[ $FILENAME ]] && tojson > $FILENAME || tojson
+    exit
+fi
 
+[[ $FILENAME ]] && sudo dmidecode | tojson > $FILENAME && exit
+sudo dmidecode | tojson 
 

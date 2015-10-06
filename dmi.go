@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 )
 
-//go:generate sudo bin/dmij -d -f test.json
+//go:generate sudo bin/dmij -f test.json
 //go:generate go-bindata -pkg=dmijson bin
 
 type BaseBoardInformation struct {
