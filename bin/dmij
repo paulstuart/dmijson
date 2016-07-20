@@ -136,7 +136,8 @@ do
     let "TAGS--"
     echo "  \"$TAG\":"
     CNT=$(ls $TMPDIR/$TAG | wc -l)
-    [[ $CNT -eq 1 ]] && show $TMPDIR/$TAG/* && echo -e "\n," && continue
+    [[ $CNT -eq 1 ]] && [[ $TAGS -gt 0 ]] && show $TMPDIR/$TAG/* && echo -e "\n," && continue
+    [[ $CNT -eq 1 ]] && [[ $TAGS -eq 0 ]] && show $TMPDIR/$TAG/* && continue
     echo "  ["
     for FILE in $TMPDIR/$TAG/*
     do
