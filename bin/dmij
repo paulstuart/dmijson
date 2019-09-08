@@ -20,7 +20,7 @@ quote() {
     WHAT="${WHAT/[[:space:]]/}"
     WHAT=$(echo $WHAT | tr -d '\t') # remove tabs
     [[ $WHAT && ${IGNORE[${WHAT,,}]} ]] && WHAT=""
-    [[ $WHAT || $LABEL ]] || continue
+    [[ $WHAT || $LABEL ]] || return
 
     # enforce quoting on values that could look like numbers
     [[ $LABEL =~ BIOSRevision || $LABEL =~ Version || $LABEL =~ Description || $LABEL =~ Address || $LABEL =~ Serial || $LABEL == "Rank" ]] && echo -n "${PREFIX}\"$WHAT\"" && return
